@@ -1,0 +1,13 @@
+name: MultiOneBlock
+main: com.oneblock.multione.MultiOneBlockPlugin
+version: 1.0.0
+api-version: '1.21'
+commands:
+  oneblock:
+    description: Manage OneBlocks
+    usage: "/oneblock add <x> <y> <z> or /oneblock add <world> <x> <y> <z>"
+    permission: oneblock.admin
+permissions:
+  oneblock.admin:
+    description: Allows management of OneBlocks
+    default: op
