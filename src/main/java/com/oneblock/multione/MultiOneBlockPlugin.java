@@ -2,21 +2,27 @@ package com.oneblock.multione;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class MultiOneBlockPlugin extends JavaPlugin implements Listener {
+import java.util.logging.Level;
+
+public class MultiOneBlockPlugin extends JavaPlugin {
 
     private OneBlockManager oneBlockManager;
 
     @Override
     public void onEnable() {
-        saveDefaultConfig();
-        oneBlockManager = new OneBlockManager(this);
-        Bukkit.getPluginManager().registerEvents(new OneBlockListener(oneBlockManager), this);
-        registerCommands();
-        oneBlockManager.load();
-        oneBlockManager.startTicking();
+        getLogger().info("Enabling MultiOneBlock...");
+        try {
+            oneBlockManager = new OneBlockManager(this);
+            Bukkit.getPluginManager().registerEvents(new OneBlockListener(oneBlockManager), this);
+            registerCommands();
+            oneBlockManager.load();
+            oneBlockManager.startTicking();
+            getLogger().info("MultiOneBlock enabled successfully.");
+        } catch (Exception ex) {
+            getLogger().log(Level.SEVERE, "Failed to enable MultiOneBlock. Plugin will remain loaded but may be inactive.", ex);
+        }
     }
 
     @Override
