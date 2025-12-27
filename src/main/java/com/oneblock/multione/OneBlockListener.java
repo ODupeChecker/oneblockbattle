@@ -18,7 +18,6 @@ public class OneBlockListener implements Listener {
         if (ob == null) {
             return;
         }
-        event.setDropItems(false);
         manager.handleBreak(ob);
     }
 }
