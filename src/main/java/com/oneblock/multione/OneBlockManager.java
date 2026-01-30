@@ -29,12 +29,15 @@ public class OneBlockManager {
     private final Plugin plugin;
     private final Map<LocationKey, OneBlock> oneBlocks = new HashMap<>();
     private final File dataFile;
+    private final File phaseConfigFile;
+    private final Map<Integer, LinkedHashMap<Material, Double>> phaseChances = new HashMap<>();
     private BukkitTask tickingTask;
     private int saveTicker = 0;
 
     public OneBlockManager(Plugin plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), "oneblocks.yml");
+        this.phaseConfigFile = new File(plugin.getDataFolder(), "phases.yml");
     }
 
     public void startTicking() {
@@ -162,12 +165,10 @@ public class OneBlockManager {
             placeEndPortal(ob);
             return;
         }
-        List<Material> pool = phase.getPool();
-        if (pool.isEmpty()) {
-            return;
+        Material next = selectNextMaterial(ob.getPhase());
+        if (next != null) {
+            setBlock(ob, next);
         }
-        Material next = pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
-        setBlock(ob, next);
         updateBossBar(ob);
     }
 
@@ -331,5 +332,122 @@ public class OneBlockManager {
         if (bar != null) {
             bar.removeAll();
         }
+    }
+
+    public void loadPhaseConfig() {
+        plugin.getDataFolder().mkdirs();
+        if (!phaseConfigFile.exists()) {
+            writeDefaultPhaseConfig();
+            return;
+        }
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(phaseConfigFile);
+        if (config.getConfigurationSection("phases") == null) {
+            writeDefaultPhaseConfig();
+            return;
+        }
+        phaseChances.clear();
+        for (String phaseKey : Objects.requireNonNull(config.getConfigurationSection("phases")).getKeys(false)) {
+            int phaseNumber;
+            try {
+                phaseNumber = Integer.parseInt(phaseKey);
+            } catch (NumberFormatException ex) {
+                plugin.getLogger().warning("Invalid phase number in phases.yml: " + phaseKey);
+                continue;
+            }
+            LinkedHashMap<Material, Double> chances = new LinkedHashMap<>();
+            for (String materialKey : Objects.requireNonNull(config.getConfigurationSection("phases." + phaseKey)).getKeys(false)) {
+                Material material = Material.matchMaterial(materialKey);
+                if (material == null) {
+                    plugin.getLogger().warning("Unknown material in phases.yml: " + materialKey);
+                    continue;
+                }
+                double chance = config.getDouble("phases." + phaseKey + "." + materialKey, 0.0);
+                chances.put(material, chance);
+            }
+            phaseChances.put(phaseNumber, chances);
+        }
+    }
+
+    public void reloadPhaseConfig() {
+        loadPhaseConfig();
+    }
+
+    public boolean addBlockToPhase(int phaseNumber, Material material) {
+        if (material == null) {
+            return false;
+        }
+        LinkedHashMap<Material, Double> chances = phaseChances.computeIfAbsent(phaseNumber, ignored -> new LinkedHashMap<>());
+        if (chances.containsKey(material)) {
+            return false;
+        }
+        chances.put(material, 1.0);
+        savePhaseConfig();
+        return true;
+    }
+
+    private void savePhaseConfig() {
+        YamlConfiguration config = new YamlConfiguration();
+        for (Map.Entry<Integer, LinkedHashMap<Material, Double>> entry : phaseChances.entrySet()) {
+            String baseKey = "phases." + entry.getKey();
+            for (Map.Entry<Material, Double> chanceEntry : entry.getValue().entrySet()) {
+                config.set(baseKey + "." + chanceEntry.getKey().name(), chanceEntry.getValue());
+            }
+        }
+        try {
+            config.save(phaseConfigFile);
+        } catch (IOException e) {
+            plugin.getLogger().log(Level.SEVERE, "Could not save phases.yml", e);
+        }
+    }
+
+    private void writeDefaultPhaseConfig() {
+        phaseChances.clear();
+        for (Phase phase : Phase.values()) {
+            if (phase == Phase.PHASE_6) {
+                continue;
+            }
+            List<Material> pool = phase.getPool();
+            if (pool.isEmpty()) {
+                continue;
+            }
+            LinkedHashMap<Material, Double> chances = new LinkedHashMap<>();
+            double chance = 100.0 / pool.size();
+            for (Material material : pool) {
+                chances.put(material, chance);
+            }
+            phaseChances.put(phase.getNumber(), chances);
+        }
+        savePhaseConfig();
+    }
+
+    private Material selectNextMaterial(int phaseNumber) {
+        LinkedHashMap<Material, Double> chances = phaseChances.get(phaseNumber);
+        if (chances == null || chances.isEmpty()) {
+            List<Material> pool = Phase.of(phaseNumber).getPool();
+            if (pool.isEmpty()) {
+                return null;
+            }
+            return pool.get(ThreadLocalRandom.current().nextInt(pool.size()));
+        }
+        double total = 0.0;
+        List<Map.Entry<Material, Double>> entries = new ArrayList<>();
+        for (Map.Entry<Material, Double> entry : chances.entrySet()) {
+            if (entry.getValue() > 0) {
+                entries.add(entry);
+                total += entry.getValue();
+            }
+        }
+        if (entries.isEmpty()) {
+            return null;
+        }
+        double roll = ThreadLocalRandom.current().nextDouble(total);
+        double cumulative = 0.0;
+        for (Map.Entry<Material, Double> entry : entries) {
+            cumulative += entry.getValue();
+            if (roll <= cumulative) {
+                return entry.getKey();
+            }
+        }
+        return entries.get(entries.size() - 1).getKey();
     }
 }
