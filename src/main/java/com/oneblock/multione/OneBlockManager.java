@@ -172,20 +172,21 @@ public class OneBlockManager {
     }
 
     private void placeChest(OneBlock ob) {
-        setBlock(ob, Material.CHEST);
         Location location = ob.toLocation();
         if (location == null) {
             return;
         }
-        Block block = location.getBlock();
-        if (!(block.getState() instanceof Chest chest)) {
-            return;
-        }
-        Inventory inventory = chest.getBlockInventory();
-        inventory.clear();
-        for (ItemStack item : Phase.of(ob.getPhase()).getChestLoot()) {
-            inventory.addItem(item);
-        }
+        setBlock(ob, Material.CHEST, () -> {
+            Block block = location.getBlock();
+            if (!(block.getState() instanceof Chest chest)) {
+                return;
+            }
+            Inventory inventory = chest.getBlockInventory();
+            inventory.clear();
+            for (ItemStack item : Phase.of(ob.getPhase()).getChestLoot()) {
+                inventory.addItem(item);
+            }
+        });
     }
 
     private void placeEndPortal(OneBlock ob) {
@@ -193,6 +194,10 @@ public class OneBlockManager {
     }
 
     private void setBlock(OneBlock ob, Material material) {
+        setBlock(ob, material, null);
+    }
+
+    private void setBlock(OneBlock ob, Material material, Runnable afterPlacement) {
         Location location = ob.toLocation();
         if (location == null) {
             return;
@@ -203,6 +208,9 @@ public class OneBlockManager {
         }
         Bukkit.getScheduler().runTask(plugin, () -> {
             location.getBlock().setType(material, false);
+            if (afterPlacement != null) {
+                afterPlacement.run();
+            }
         });
     }
 
