@@ -17,6 +17,7 @@ public class MultiOneBlockPlugin extends JavaPlugin {
             oneBlockManager = new OneBlockManager(this);
             Bukkit.getPluginManager().registerEvents(new OneBlockListener(oneBlockManager), this);
             registerCommands();
+            oneBlockManager.loadPhaseConfig();
             oneBlockManager.load();
             oneBlockManager.startTicking();
             getLogger().info("MultiOneBlock enabled successfully.");
@@ -40,6 +41,14 @@ public class MultiOneBlockPlugin extends JavaPlugin {
             command.setTabCompleter(executor);
         } else {
             getLogger().severe("oneblock command not defined in plugin.yml");
+        }
+        PluginCommand phaseCommand = getCommand("phase");
+        if (phaseCommand != null) {
+            PhaseCommand executor = new PhaseCommand(oneBlockManager);
+            phaseCommand.setExecutor(executor);
+            phaseCommand.setTabCompleter(executor);
+        } else {
+            getLogger().severe("phase command not defined in plugin.yml");
         }
     }
 }

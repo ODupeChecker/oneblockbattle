@@ -27,14 +27,15 @@ public class OneBlockCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if (args.length == 0) {
-            sender.sendMessage("Usage: /oneblock add/remove <coords>");
+            sender.sendMessage("Usage: /oneblock add/remove <coords> or /oneblock reload");
             return true;
         }
         String sub = args[0].toLowerCase();
         switch (sub) {
             case "add" -> handleAdd(sender, args);
             case "remove" -> handleRemove(sender, args);
-            default -> sender.sendMessage("Unknown subcommand. Use add or remove.");
+            case "reload" -> handleReload(sender);
+            default -> sender.sendMessage("Unknown subcommand. Use add, remove, or reload.");
         }
         return true;
     }
@@ -65,6 +66,11 @@ public class OneBlockCommand implements CommandExecutor, TabCompleter {
         } else {
             sender.sendMessage("No OneBlock registered at those coordinates.");
         }
+    }
+
+    private void handleReload(CommandSender sender) {
+        manager.reloadPhaseConfig();
+        sender.sendMessage("OneBlock configuration reloaded.");
     }
 
     private ParseResult parse(CommandSender sender, String[] args) {
@@ -110,6 +116,7 @@ public class OneBlockCommand implements CommandExecutor, TabCompleter {
             List<String> subs = new ArrayList<>();
             subs.add("add");
             subs.add("remove");
+            subs.add("reload");
             return subs;
         }
         if (args.length == 2 && !(sender instanceof Player)) {

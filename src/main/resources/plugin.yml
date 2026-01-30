@@ -5,7 +5,11 @@ api-version: '1.21'
 commands:
   oneblock:
     description: Manage OneBlocks
-    usage: "/oneblock add <x> <y> <z> or /oneblock add <world> <x> <y> <z>"
+    usage: "/oneblock add <x> <y> <z> | /oneblock add <world> <x> <y> <z> | /oneblock remove <x> <y> <z> | /oneblock reload"
+    permission: oneblock.admin
+  phase:
+    description: Adjust OneBlock phase block pools
+    usage: "/phase <number> addblock <block>"
     permission: oneblock.admin
 permissions:
   oneblock.admin:
