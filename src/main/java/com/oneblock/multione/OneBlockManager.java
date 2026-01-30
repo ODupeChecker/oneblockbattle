@@ -31,6 +31,7 @@ public class OneBlockManager {
     private final File dataFile;
     private final File phaseConfigFile;
     private final Map<Integer, LinkedHashMap<Material, Double>> phaseChances = new HashMap<>();
+    private final Map<Integer, Integer> blocksPerPhase = new HashMap<>();
     private BukkitTask tickingTask;
     private int saveTicker = 0;
 
@@ -118,7 +119,8 @@ public class OneBlockManager {
         }
         ob.incrementBrokenInPhase();
         int broken = ob.getBrokenInPhase();
-        if (broken == Phase.BLOCKS_PER_PHASE - 1) {
+        int blocksInPhase = getBlocksPerPhase(ob.getPhase());
+        if (broken == blocksInPhase - 1) {
             placeChest(ob);
             ob.setChestPlaced(true);
         } else {
@@ -232,8 +234,9 @@ public class OneBlockManager {
         }
         int phaseNumber = ob.getPhase();
         int broken = ob.getBrokenInPhase();
-        double progress = Math.max(0.0, Math.min(1.0, broken / (double) Phase.BLOCKS_PER_PHASE));
-        bar.setTitle("Phase " + phaseNumber + " – Progress: " + broken + " / " + Phase.BLOCKS_PER_PHASE);
+        int blocksInPhase = getBlocksPerPhase(phaseNumber);
+        double progress = Math.max(0.0, Math.min(1.0, broken / (double) blocksInPhase));
+        bar.setTitle("Phase " + phaseNumber + " – Progress: " + broken + " / " + blocksInPhase);
         bar.setProgress(progress);
         bar.setVisible(!ob.isChestPlaced());
     }
@@ -346,6 +349,7 @@ public class OneBlockManager {
             return;
         }
         phaseChances.clear();
+        blocksPerPhase.clear();
         for (String phaseKey : Objects.requireNonNull(config.getConfigurationSection("phases")).getKeys(false)) {
             int phaseNumber;
             try {
@@ -356,6 +360,9 @@ public class OneBlockManager {
             }
             LinkedHashMap<Material, Double> chances = new LinkedHashMap<>();
             for (String materialKey : Objects.requireNonNull(config.getConfigurationSection("phases." + phaseKey)).getKeys(false)) {
+                if (materialKey.equalsIgnoreCase("blocks-per-phase")) {
+                    continue;
+                }
                 Material material = Material.matchMaterial(materialKey);
                 if (material == null) {
                     plugin.getLogger().warning("Unknown material in phases.yml: " + materialKey);
@@ -364,6 +371,8 @@ public class OneBlockManager {
                 double chance = config.getDouble("phases." + phaseKey + "." + materialKey, 0.0);
                 chances.put(material, chance);
             }
+            int blocksInPhase = config.getInt("phases." + phaseKey + ".blocks-per-phase", Phase.BLOCKS_PER_PHASE);
+            blocksPerPhase.put(phaseNumber, blocksInPhase);
             phaseChances.put(phaseNumber, chances);
         }
     }
@@ -381,15 +390,21 @@ public class OneBlockManager {
             return false;
         }
         chances.put(material, 1.0);
+        blocksPerPhase.putIfAbsent(phaseNumber, Phase.BLOCKS_PER_PHASE);
         savePhaseConfig();
         return true;
     }
 
     private void savePhaseConfig() {
         YamlConfiguration config = new YamlConfiguration();
-        for (Map.Entry<Integer, LinkedHashMap<Material, Double>> entry : phaseChances.entrySet()) {
-            String baseKey = "phases." + entry.getKey();
-            for (Map.Entry<Material, Double> chanceEntry : entry.getValue().entrySet()) {
+        Set<Integer> allPhases = new HashSet<>();
+        allPhases.addAll(phaseChances.keySet());
+        allPhases.addAll(blocksPerPhase.keySet());
+        for (Integer phaseNumber : allPhases) {
+            String baseKey = "phases." + phaseNumber;
+            config.set(baseKey + ".blocks-per-phase", blocksPerPhase.getOrDefault(phaseNumber, Phase.BLOCKS_PER_PHASE));
+            LinkedHashMap<Material, Double> chanceMap = phaseChances.getOrDefault(phaseNumber, new LinkedHashMap<>());
+            for (Map.Entry<Material, Double> chanceEntry : chanceMap.entrySet()) {
                 config.set(baseKey + "." + chanceEntry.getKey().name(), chanceEntry.getValue());
             }
         }
@@ -402,6 +417,7 @@ public class OneBlockManager {
 
     private void writeDefaultPhaseConfig() {
         phaseChances.clear();
+        blocksPerPhase.clear();
         for (Phase phase : Phase.values()) {
             if (phase == Phase.PHASE_6) {
                 continue;
@@ -416,6 +432,7 @@ public class OneBlockManager {
                 chances.put(material, chance);
             }
             phaseChances.put(phase.getNumber(), chances);
+            blocksPerPhase.put(phase.getNumber(), Phase.BLOCKS_PER_PHASE);
         }
         savePhaseConfig();
     }
@@ -449,5 +466,10 @@ public class OneBlockManager {
             }
         }
         return entries.get(entries.size() - 1).getKey();
+    }
+
+    private int getBlocksPerPhase(int phaseNumber) {
+        int configured = blocksPerPhase.getOrDefault(phaseNumber, Phase.BLOCKS_PER_PHASE);
+        return Math.max(1, configured);
     }
 }
