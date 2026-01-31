@@ -2,6 +2,8 @@ name: MultiOneBlock
 main: com.oneblock.multione.MultiOneBlockPlugin
 version: 1.0.0
 api-version: '1.21'
+softdepend:
+  - PlaceholderAPI
 commands:
   oneblock:
     description: Manage OneBlocks
